@@ -321,37 +321,37 @@ public class HeapPage implements Page {
 
     private class TupleIterator implements Iterator<Tuple> {
         private   int pos = 0;
-//        
-//        @Override
-//        public boolean hasNext(){
-//            while(pos < HeapPage.this.numSlots && !isSlotUsed(pos)) pos++;
-//
-//            return pos <HeapPage.this.numSlots; 
-//        }
-//
-//        @Override
-//        public Tuple next(){
-//            if(!hasNext()) throw new NoSuchElementException();
-//            return tuples[pos++];
-//        }
-        private int index = 0;//tuple数组的下标变化
-        private int usedTuplesNum = getNumTuples() - getNumEmptySlots();
-
+        
         @Override
-        public boolean hasNext() {
-            return index < getNumTuples() && pos < usedTuplesNum;
+        public boolean hasNext(){
+            while(pos < HeapPage.this.numSlots && !isSlotUsed(pos)) pos++;
+
+            return pos <HeapPage.this.numSlots; 
         }
 
         @Override
-        public Tuple next() {
-            if (!hasNext()) {
-                throw new NoSuchElementException();
-            }
-            for (; !isSlotUsed(index); index++) {
-            }//直到找到在使用的(对应的slot非空的)tuple，再返回
-            pos++;
-            return tuples[index++];
+        public Tuple next(){
+            if(!hasNext()) throw new NoSuchElementException();
+            return tuples[pos++];
         }
+//        private int index = 0;//tuple数组的下标变化
+//        private int usedTuplesNum = getNumTuples() - getNumEmptySlots();
+//
+//        @Override
+//        public boolean hasNext() {
+//            return index < getNumTuples() && pos < usedTuplesNum;
+//        }
+//
+//        @Override
+//        public Tuple next() {
+//            if (!hasNext()) {
+//                throw new NoSuchElementException();
+//            }
+//            for (; !isSlotUsed(index); index++) {
+//            }//直到找到在使用的(对应的slot非空的)tuple，再返回
+//            pos++;
+//            return tuples[index++];
+//        }
     }
 
 }
