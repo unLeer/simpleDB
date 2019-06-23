@@ -66,7 +66,10 @@ public class HeapPage implements Page {
     */
     private int getNumTuples() {        
         // some code goes here
-        return 0;
+        int tuplesize = this.td.getSize();
+        int Pagesize = BufferPool.PAGE_SIZE;
+        int ans =(int) Math.floor((double)(Pagesize*8/(tuplesize*8+1)));
+        return ans;
 
     }
 
@@ -75,9 +78,9 @@ public class HeapPage implements Page {
      * @return the number of bytes in the header of a page in a HeapFile with each tuple occupying tupleSize bytes
      */
     private int getHeaderSize() {        
-        
         // some code goes here
-        return 0;
+        int ans =(int) Math.ceil((double)getNumTuples()/8);
+        return ans;
                  
     }
     
@@ -103,7 +106,7 @@ public class HeapPage implements Page {
      */
     public HeapPageId getId() {
     // some code goes here
-    throw new UnsupportedOperationException("implement this");
+        return this.pid;
     }
 
     /**
@@ -273,15 +276,30 @@ public class HeapPage implements Page {
      */
     public int getNumEmptySlots() {
         // some code goes here
-        return 0;
+        int count = 0;
+        for(int i=0; i<this.tuples.length; i++){
+            if(!isSlotUsed(i)) count++;
+        }
+        return count;
     }
 
     /**
      * Returns true if associated slot on this page is filled.
+     * start from 0?
+     * the ith slot is 1
      */
     public boolean isSlotUsed(int i) {
         // some code goes here
-        return false;
+        int headerIndex = i/8;
+        int bitIndex = i%8; //大端模式 从右往左写入
+
+        return isOne(header[headerIndex], bitIndex);
+    }
+
+    public boolean isOne(byte bite,int bitIndex){
+        //I think this part has nothing to do with "big-endian"
+        //return (byte)(bite << bitIndex ) < 0;
+        return (byte)(bite << (7-bitIndex)) < 0;
     }
 
     /**
@@ -298,7 +316,42 @@ public class HeapPage implements Page {
      */
     public Iterator<Tuple> iterator() {
         // some code goes here
-        return null;
+        return new TupleIterator();
+    }
+
+    private class TupleIterator implements Iterator<Tuple> {
+        private   int pos = 0;
+//        
+//        @Override
+//        public boolean hasNext(){
+//            while(pos < HeapPage.this.numSlots && !isSlotUsed(pos)) pos++;
+//
+//            return pos <HeapPage.this.numSlots; 
+//        }
+//
+//        @Override
+//        public Tuple next(){
+//            if(!hasNext()) throw new NoSuchElementException();
+//            return tuples[pos++];
+//        }
+        private int index = 0;//tuple数组的下标变化
+        private int usedTuplesNum = getNumTuples() - getNumEmptySlots();
+
+        @Override
+        public boolean hasNext() {
+            return index < getNumTuples() && pos < usedTuplesNum;
+        }
+
+        @Override
+        public Tuple next() {
+            if (!hasNext()) {
+                throw new NoSuchElementException();
+            }
+            for (; !isSlotUsed(index); index++) {
+            }//直到找到在使用的(对应的slot非空的)tuple，再返回
+            pos++;
+            return tuples[index++];
+        }
     }
 
 }
