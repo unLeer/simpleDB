@@ -55,9 +55,9 @@ public class BufferPool {
     public  Page getPage(TransactionId tid, PageId pid, Permissions perm)
         throws TransactionAbortedException, DbException {
         // some code goes here
-        if(perm.permLevel != 0 || perm.permLevel != 1) {
-            throw new IllegalArgumentException();
-        }
+//        if(perm.permLevel != 0 || perm.permLevel != 1) {
+//            throw new IllegalArgumentException();
+//        }
         if(Pagemap.containsKey(pid)){
             return Pagemap.get(pid);
         }
