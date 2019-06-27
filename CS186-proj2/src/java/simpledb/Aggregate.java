@@ -29,9 +29,69 @@ public class Aggregate extends Operator {
      * @param aop
      *            The aggregation operator to use
      */
+
+    private DbIterator[] children;
+    private int aIndex;
+    private int gbIndex;
+    private Aggregator.Op op;
+    private Aggregator aggregator;
+
+    private DbIterator iterator;
+
     public Aggregate(DbIterator child, int afield, int gfield, Aggregator.Op aop) {
-	// some code goes here
+        // some code goes here
+        children = new DbIterator[1];
+        children[0] = child;
+        this.aIndex = afield;
+        this.gbIndex = gfield;
+        this.op = aop;
+
+        //考虑到setchildren的可能，可能需要重置aggregator,但又觉得不可能，如果children和child在aggregtor中不保持一致，这没有意义了
+        //但是考虑到rewind()功能与setChildren()功能，应该需要能够对aggregator进行清零的操作
+        //所以Aggregator的初始化应该在open()中进行
+        //通过child的tupleDesc设置aggregator的type
+//        if(child.getTupleDesc().getFieldType(aIndex) == Type.INT_TYPE){
+//            aggregator = new IntegerAggregator(gbIndex, gbIndex == -1 ? null : child.getTupleDesc().getFieldType(gbIndex), aIndex, op);
+//        }
+//        else if(child.getTupleDesc().getFieldType(aIndex) == Type.STRING_TYPE){
+//            if(op.toString().equals("count")) throw new IllegalArgumentException("have to be Op.CONUT");
+//
+//            aggregator = new StringAggregator(gbIndex, gbIndex == -1 ? null : child.getTupleDesc().getFieldType(gbIndex), aIndex, op);
+//        }
+//
+//        //设置tupleDesc的fieldname
+//        if(gbIndex == -1){
+//            aggregator.getTupleDesc().getTDItemAr()[0].fieldName = aggregateFieldName();
+//        }
+//        else{
+//            aggregator.getTupleDesc().getTDItemAr()[1].fieldName = aggregateFieldName();
+//            aggregator.getTupleDesc().getTDItemAr()[0].fieldName = groupFieldName();
+//            
+//        }
     }
+
+    public void initialAggregator(DbIterator child){
+        if(child.getTupleDesc().getFieldType(aIndex) == Type.INT_TYPE){
+            aggregator = new IntegerAggregator(gbIndex, gbIndex == -1 ? null : child.getTupleDesc().getFieldType(gbIndex), aIndex, op);
+        }
+        else if(child.getTupleDesc().getFieldType(aIndex) == Type.STRING_TYPE){
+            if(!op.toString().equals("count")) throw new IllegalArgumentException("have to be Op.CONUT");
+
+            aggregator = new StringAggregator(gbIndex, gbIndex == -1 ? null : child.getTupleDesc().getFieldType(gbIndex), aIndex, op);
+        }
+
+        //设置tupleDesc的fieldname
+        if(gbIndex == -1){
+            aggregator.getTupleDesc().getTDItemAr()[0].fieldName = aggregateFieldName();
+        }
+        else{
+            aggregator.getTupleDesc().getTDItemAr()[1].fieldName = aggregateFieldName();
+            aggregator.getTupleDesc().getTDItemAr()[0].fieldName = groupFieldName();
+            
+        }
+
+    }
+
 
     /**
      * @return If this aggregate is accompanied by a groupby, return the groupby
@@ -39,8 +99,9 @@ public class Aggregate extends Operator {
      *         {@link simpledb.Aggregator#NO_GROUPING}
      * */
     public int groupField() {
-	// some code goes here
-	return -1;
+        // some code goes here
+        if(gbIndex == -1) return Aggregator.NO_GROUPING;
+        return gbIndex;
     }
 
     /**
@@ -49,8 +110,9 @@ public class Aggregate extends Operator {
      *         null;
      * */
     public String groupFieldName() {
-	// some code goes here
-	return null;
+        // some code goes here
+        if(gbIndex == -1) return null;
+        return children[0].getTupleDesc().getFieldName(gbIndex);
     }
 
     /**
@@ -58,7 +120,7 @@ public class Aggregate extends Operator {
      * */
     public int aggregateField() {
 	// some code goes here
-	return -1;
+	return aIndex;
     }
 
     /**
@@ -67,7 +129,7 @@ public class Aggregate extends Operator {
      * */
     public String aggregateFieldName() {
 	// some code goes here
-	return null;
+	return children[0].getTupleDesc().getFieldName(aIndex);
     }
 
     /**
@@ -75,7 +137,7 @@ public class Aggregate extends Operator {
      * */
     public Aggregator.Op aggregateOp() {
 	// some code goes here
-	return null;
+	return this.op;
     }
 
     public static String nameOfAggregatorOp(Aggregator.Op aop) {
@@ -84,7 +146,17 @@ public class Aggregate extends Operator {
 
     public void open() throws NoSuchElementException, DbException,
 	    TransactionAbortedException {
-	// some code goes here
+            // some code goes here
+            super.open();
+            initialAggregator(children[0]);
+            for(DbIterator di : children){
+                di.open();
+                while(di.hasNext()){
+                    aggregator.mergeTupleIntoGroup(di.next());
+                }
+            }
+            iterator = aggregator.iterator();
+            iterator.open();
     }
 
     /**
@@ -96,11 +168,14 @@ public class Aggregate extends Operator {
      */
     protected Tuple fetchNext() throws TransactionAbortedException, DbException {
 	// some code goes here
-	return null;
+        if(iterator.hasNext()) return iterator.next();
+        return null;
     }
 
     public void rewind() throws DbException, TransactionAbortedException {
 	// some code goes here
+        iterator = null;
+        open();
     }
 
     /**
@@ -116,22 +191,28 @@ public class Aggregate extends Operator {
      */
     public TupleDesc getTupleDesc() {
 	// some code goes here
-	return null;
+        if(aggregator == null){
+            initialAggregator(children[0]);
+        }
+        return aggregator.getTupleDesc();
     }
 
     public void close() {
 	// some code goes here
+        aggregator = null;
+        iterator = null;
     }
 
     @Override
     public DbIterator[] getChildren() {
 	// some code goes here
-	return null;
+	return children;
     }
 
     @Override
     public void setChildren(DbIterator[] children) {
 	// some code goes here
+        this.children = children;
     }
     
 }
