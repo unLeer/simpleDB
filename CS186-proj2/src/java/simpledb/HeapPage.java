@@ -3,6 +3,7 @@ package simpledb;
 import java.util.*;
 import java.io.*;
 
+
 /**
  * Each instance of HeapPage stores data for one page of HeapFiles and 
  * implements the Page interface that is used by BufferPool.
@@ -17,6 +18,10 @@ public class HeapPage implements Page {
     TupleDesc td;
     byte header[];
     Tuple tuples[];
+
+    TransactionId lasttid;
+    boolean isdirty;
+
     int numSlots;
 
     byte[] oldData;
@@ -57,6 +62,7 @@ public class HeapPage implements Page {
             e.printStackTrace();
         }
         dis.close();
+        //System.out.println("empty slots:"+getNumEmptySlots()+"/"+numSlots);
 
         setBeforeImage();
     }
@@ -239,6 +245,16 @@ public class HeapPage implements Page {
     public void deleteTuple(Tuple t) throws DbException {
         // some code goes here
         // not necessary for lab1
+        int tuplenum = t.getRecordId().tupleno();
+        if(!t.getRecordId().getPageId().equals(this.pid) || !isSlotUsed(tuplenum)){
+            throw new DbException("tuple is not on this tuple");
+        }
+        //error, maybe a tuple can be not used while it still can be deleted
+        //if(!isSlotUsed(tuplenum)) throw new IllegalArgumentException("tuple is not used and cannot be deleted");
+        markSlotUsed(tuplenum, false);
+        tuples[tuplenum] = null;
+        //if(isSlotUsed(tuplenum)) throw new DbException("fail to delete this tuple");
+        
     }
 
     /**
@@ -251,8 +267,17 @@ public class HeapPage implements Page {
     public void insertTuple(Tuple t) throws DbException {
         // some code goes here
         // not necessary for lab1
-    }
+        if(getNumEmptySlots() == 0) throw new DbException("the page is full");
+        for(int i=0; i<getNumTuples(); i++){
+            if(isSlotUsed(i)) continue;
 
+            markSlotUsed(i,true);
+            if(!isSlotUsed(i)) throw new DbException("fail to insert");
+            tuples[i] = t;
+            t.setRecordId(new RecordId(this.pid, i));
+            break;
+        }
+    }
     /**
      * Marks this page as dirty/not dirty and record that transaction
      * that did the dirtying
@@ -260,6 +285,8 @@ public class HeapPage implements Page {
     public void markDirty(boolean dirty, TransactionId tid) {
         // some code goes here
 	// not necessary for lab1
+        this.isdirty = dirty;
+        this.lasttid = tid;
     }
 
     /**
@@ -268,7 +295,8 @@ public class HeapPage implements Page {
     public TransactionId isDirty() {
         // some code goes here
 	// Not necessary for lab1
-        return null;      
+        if(isdirty) return lasttid;
+        else return null;
     }
 
     /**
@@ -298,16 +326,35 @@ public class HeapPage implements Page {
 
     public boolean isOne(byte bite,int bitIndex){
         //I think this part has nothing to do with "big-endian"
+        //while the truth doesn't think so
         //return (byte)(bite << bitIndex ) < 0;
         return (byte)(bite << (7-bitIndex)) < 0;
     }
 
     /**
      * Abstraction to fill or clear a slot on this page.
+     * false:  from used to not-used
+     * true:  from not-used to used
      */
-    private void markSlotUsed(int i, boolean value) {
+    private void markSlotUsed(int tuplenum, boolean value) {
         // some code goes here
         // not necessary for lab1
+        byte head = this.header[tuplenum/8];
+        int shift = tuplenum%8;
+
+        if(!value){
+            //00010000 ->  11101111 -> & 
+            //byte changed =(byte)(head & (~(0b00000001 << shift)));
+            byte changed =(byte)(head & (~(1 << shift)));
+            this.header[tuplenum/8] = changed;
+        }
+        else if(value){
+            //00010000 -> |
+            //byte changed = (byte)(head | (0b00000001 << shift));
+            byte changed = (byte)(head | ((byte)1 << shift));
+            this.header[tuplenum/8] = changed;
+        }
+
     }
 
     /**
@@ -316,6 +363,7 @@ public class HeapPage implements Page {
      */
     public Iterator<Tuple> iterator() {
         // some code goes here
+        //System.out.println("empty slots:"+ getNumEmptySlots()+"/"+numSlots);
         return new TupleIterator();
     }
 

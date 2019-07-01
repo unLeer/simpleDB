@@ -154,6 +154,7 @@ public class Aggregate extends Operator {
                 while(di.hasNext()){
                     aggregator.mergeTupleIntoGroup(di.next());
                 }
+                di.close();
             }
             iterator = aggregator.iterator();
             iterator.open();
@@ -199,6 +200,7 @@ public class Aggregate extends Operator {
 
     public void close() {
 	// some code goes here
+       super.close();
         aggregator = null;
         iterator = null;
     }

@@ -139,6 +139,16 @@ public class BufferPool {
         throws DbException, IOException, TransactionAbortedException {
         // some code goes here
         // not necessary for proj1
+        HeapFile heapfile = (HeapFile)Database.getCatalog().getDbFile(tableId);
+        ArrayList<Page> pages = heapfile.insertTuple(tid, t);
+//        for(Page p : pages){
+//            try{
+//                heapfile.writePage(p);
+//            }catch(IOException e){
+//                e.printStackTrace();
+//                System.out.println("fail to write page"+ p.getId().pageNumber()+" to disk");
+//            }
+//        }
     }
 
     /**
@@ -158,6 +168,16 @@ public class BufferPool {
         throws DbException, TransactionAbortedException {
         // some code goes here
         // not necessary for proj1
+        int tableId = t.getRecordId().getPageId().getTableId();
+        HeapFile heapfile = (HeapFile)Database.getCatalog().getDbFile(tableId);
+        Page page = heapfile.deleteTuple(tid, t);
+        try{
+            heapfile.writePage(page);
+        }catch(IOException e){
+            e.printStackTrace();
+            System.out.println("fail to write page to disk");
+        }
+
     }
 
     /**

@@ -38,6 +38,8 @@ public class SeqScan implements DbIterator {
         this.tid = tid;
         this.tableid = tableid;
         this.tableAlias = tableAlias;
+        this.df = Database.getCatalog().getDbFile(this.tableid);
+        //if(df == null) throw new DbException("this tableid is null");
     }
 
     /**
@@ -82,7 +84,8 @@ public class SeqScan implements DbIterator {
 
     public void open() throws DbException, TransactionAbortedException, NoSuchElementException {
         // some code goes here
-        this.df = Database.getCatalog().getDbFile(this.tableid);
+//        this.df = Database.getCatalog().getDbFile(this.tableid);
+//        if(df == null) throw new DbException("this tableid is null");
         this.iterator = this.df.iterator(tid);
         this.iterator.open();
     }

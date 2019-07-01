@@ -57,6 +57,7 @@ public class HeapFileEncoder {
       for (int i = 0; i < ts.length; i++) {
           ts[i] = Type.INT_TYPE;
       }
+      //System.out.println(numFields);
       convert(inFile,outFile,npagebytes,numFields,ts);
       }
 
