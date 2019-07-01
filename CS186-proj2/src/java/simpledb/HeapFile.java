@@ -147,11 +147,10 @@ public class HeapFile implements DbFile {
             if(page.getNumEmptySlots() == 0) continue;
             try{
                 page.insertTuple(t);
-                writePage(page);
+                page.markDirty(true, tid);
+                //writePage(page);
             }catch(DbException e){
                 System.out.println("shouldn't reach here");
-            }catch(IOException e){
-                e.printStackTrace();
             }
             ArrayList<Page> ans = new ArrayList<Page>();
             ans.add(page);
@@ -159,10 +158,13 @@ public class HeapFile implements DbFile {
         }
         //如果找不到空闲page，重新建立一个page
         //writePage:把修改后的page数据写入file？page.getPageData();
-        HeapPage newpage= new HeapPage(new HeapPageId(getId(), Pagenums), HeapPage.createEmptyPageData());
+        HeapPageId npid = new HeapPageId(getId(), Pagenums);
+        HeapPage newpage= new HeapPage(npid, HeapPage.createEmptyPageData());
         try{
-            newpage.insertTuple(t);
             writePage(newpage);
+            newpage = (HeapPage)Database.getBufferPool().getPage(tid,npid, Permissions.READ_WRITE);
+            newpage.insertTuple(t);
+            newpage.markDirty(true, tid);
         }catch(DbException e){
             System.out.println("empty page is not empty?");
         }catch(IOException e){
@@ -182,11 +184,12 @@ public class HeapFile implements DbFile {
         HeapPage page = (HeapPage)Database.getBufferPool().getPage(tid, t.getRecordId().getPageId(), Permissions.READ_WRITE);
 
         page.deleteTuple(t);
-        try{
-            writePage(page);
-        }catch(IOException e){
-            e.printStackTrace();
-        }
+        page.markDirty(true, tid);
+//        try{
+//            writePage(page);
+//        }catch(IOException e){
+//            e.printStackTrace();
+//        }
         return page;
     }
 

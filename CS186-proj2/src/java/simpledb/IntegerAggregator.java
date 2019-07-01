@@ -80,7 +80,8 @@ public class IntegerAggregator implements Aggregator {
 
         int value = ((IntField)tup.getField(afield)).getValue();
         if(gbmap.containsKey(key)){
-            gbmap.put(key, CalculateOp(value, gbmap.get(key), key));
+            int formervalue = gbmap.get(key);
+            gbmap.put(key, CalculateOp(value, formervalue, key));
         }
         else{
             if(op.toString().equals("min")){
@@ -107,7 +108,7 @@ public class IntegerAggregator implements Aggregator {
             return value+formervalue;
         }
         if(op.toString().equals("avg")){
-            if(formervalue == 0){
+            if(!assistCountmap.containsKey(key)){
                 assistCountmap.put(key,1);
                 assistSummap.put(key,value);
                 return value;

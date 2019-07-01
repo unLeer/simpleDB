@@ -152,7 +152,9 @@ public class Aggregate extends Operator {
             for(DbIterator di : children){
                 di.open();
                 while(di.hasNext()){
-                    aggregator.mergeTupleIntoGroup(di.next());
+                    Tuple t = di.next();
+//                    System.out.println("aIndex:"+aIndex+" tuple:"+t.toString());
+                    aggregator.mergeTupleIntoGroup(t);
                 }
                 di.close();
             }

@@ -23,7 +23,11 @@ public class BufferPool {
 
     private final int numPages;
 
-    private HashMap<PageId, Page> Pagemap;
+    private HashMap<PageId, Node> Nodemap;
+
+    private Node header;
+
+    private Node tailer;
 
 
     /**
@@ -34,7 +38,39 @@ public class BufferPool {
     public BufferPool(int numPages) {
         // some code goes here
         this.numPages = numPages;
-        Pagemap = new HashMap<PageId, Page>(this.numPages);
+        Nodemap = new HashMap<PageId, Node>(this.numPages);
+    }
+
+    public class Node{
+        public Node pre;
+        public Node next;
+        public Page page;
+
+        public Node(Page page){
+            this.page = page;
+        }
+
+        private Page getPage(){
+            return this.page;
+        }
+
+        private void remove(){
+            if(pre!=null) pre.next = next;
+            if(header == this) header = next;
+            if(next!=null) next.pre = pre;
+            if(tailer == this) tailer = pre;
+        }
+
+        private void movetoHead(){
+            if(header == null){
+                header = this;
+                tailer = this;
+            }
+            next = header;
+            header = this;
+            next.pre = this;
+        }
+
     }
 
     /**
@@ -58,23 +94,41 @@ public class BufferPool {
 //        if(perm.permLevel != 0 || perm.permLevel != 1) {
 //            throw new IllegalArgumentException();
 //        }
-        if(Pagemap.containsKey(pid)){
-            return Pagemap.get(pid);
+        if(Nodemap.containsKey(pid)){
+            Node node = Nodemap.get(pid);
+            node.remove();
+            node.movetoHead();
+            return Nodemap.get(pid).getPage();
         }
         else{
             HeapFile hpfile =(HeapFile) Database.getCatalog().getDbFile(pid.getTableId());
             HeapPage hppage = (HeapPage) hpfile.readPage(pid);
-            if(addpage(pid, hppage) == -1) throw new DbException("page oversize");
+            addpage(pid,hppage);
             return hppage;
         }
     }
     
-    private int  addpage(PageId pid, Page newpage){
-        Pagemap.put(pid, newpage);
-        if(Pagemap.size() > this.numPages){
-            return -1;
+    private synchronized void addpage(PageId pid, Page newpage){
+        Node node = new Node(newpage);
+        //still have space
+        if(Nodemap.keySet().size() < numPages){
+            Nodemap.put(pid, node);
+            node.movetoHead();
         }
-        return 1;
+        else{
+            //commit a evicPage
+            Node pretail = tailer;
+            try{
+                flushPage(pretail.getPage().getId());
+            }catch(IOException e){
+                e.printStackTrace();
+            }
+            pretail.remove();
+            Nodemap.remove(pretail.getPage().getId());
+            
+            Nodemap.put(pid, node);
+            node.movetoHead();
+        }
     }
 
     /**
@@ -171,12 +225,6 @@ public class BufferPool {
         int tableId = t.getRecordId().getPageId().getTableId();
         HeapFile heapfile = (HeapFile)Database.getCatalog().getDbFile(tableId);
         Page page = heapfile.deleteTuple(tid, t);
-        try{
-            heapfile.writePage(page);
-        }catch(IOException e){
-            e.printStackTrace();
-            System.out.println("fail to write page to disk");
-        }
 
     }
 
@@ -188,6 +236,9 @@ public class BufferPool {
     public synchronized void flushAllPages() throws IOException {
         // some code goes here
         // not necessary for proj1
+        for(PageId pid : Nodemap.keySet()){
+            flushPage(pid);
+        }
 
     }
 
@@ -208,6 +259,12 @@ public class BufferPool {
     private synchronized  void flushPage(PageId pid) throws IOException {
         // some code goes here
         // not necessary for proj1
+        if(!Nodemap.containsKey(pid)) return;
+        Page page = Nodemap.get(pid).getPage();
+        if(page.isDirty() == null) return;
+
+        Database.getCatalog().getDbFile(pid.getTableId()).writePage(page);
+        page.markDirty(false, null);
     }
 
     /** Write all pages of the specified transaction to disk.

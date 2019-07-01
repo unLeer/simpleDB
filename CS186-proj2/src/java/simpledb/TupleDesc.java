@@ -191,7 +191,7 @@ public class TupleDesc implements Serializable {
         // some code goes here
         if(name == null) throw new NoSuchElementException();
         for(int i = 0; i<Fieldnums; i++){
-            if(TDItemAr[i].fieldName.equals(name)) return i;
+            if(TDItemAr[i].fieldName != null && TDItemAr[i].fieldName.equals(name)) return i;
         }
         throw new NoSuchElementException();
     }
