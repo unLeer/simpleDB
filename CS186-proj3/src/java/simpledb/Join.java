@@ -11,6 +11,9 @@ public class Join extends Operator {
     private DbIterator[] children;
     private JoinPredicate jp;
 
+    //blocknestedloopJoin将表1存入内存，考虑到内存大小有限制可能存不下，取131072的缓冲区大小
+    public static final int blockMemory = 131071;
+
 
     private Tuple outerflag;
 

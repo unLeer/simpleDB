@@ -13,6 +13,7 @@ import javax.swing.tree.*;
 public class JoinOptimizer {
     LogicalPlan p;
     Vector<LogicalJoinNode> joins;
+    
 
     /**
      * Constructor
@@ -111,7 +112,8 @@ public class JoinOptimizer {
             // HINT: You may need to use the variable "j" if you implemented
             // a join algorithm that's more complicated than a basic nested-loops
             // join.
-            return -1.0;
+            //nljoin,没考虑缓存
+            return cost1+card1*cost2+card1*card2;
         }
     }
 
@@ -156,6 +158,29 @@ public class JoinOptimizer {
             Map<String, Integer> tableAliasToId) {
         int card = 1;
         // some code goes here
+        int smallerSize = card1 < card2 ? card1 : card2;
+        int biggerSize = card1 > card2 ? card1 : card2;
+        switch (joinOp) {
+            case EQUALS:
+                if (t1pkey && t2pkey) {
+                    card = smallerSize;
+                } else if (t1pkey && !t2pkey) {
+                    card = card2;
+                } else if (!t1pkey && t2pkey) {
+                    card = card1;
+                } else {
+                    card = biggerSize;
+                }
+                break;
+            case GREATER_THAN:
+            case GREATER_THAN_OR_EQ:
+            case LESS_THAN:
+            case LESS_THAN_OR_EQ:
+                card = (int) (card1 * card2 * 0.3);
+                break;
+            default:
+                card = card1 * card2;
+        }
         return card <= 0 ? 1 : card;
     }
 
@@ -222,7 +247,32 @@ public class JoinOptimizer {
 
         // some code goes here
         //Replace the following
-        return joins;
+            PlanCache pc = new PlanCache();
+            int wholesize = joins.size();
+            Set<LogicalJoinNode> wholeset = null;
+            for(int size = 1; size<= wholesize; size++){
+                Set<Set<LogicalJoinNode>> tempsetset = enumerateSubsets(this.joins, size);
+                for( Set<LogicalJoinNode> tempset : tempsetset){
+                    if(size == wholesize){
+                        wholeset = tempset;
+                    }
+                    double bestcost = Double.MAX_VALUE;
+                    CostCard bestvector = new CostCard();
+                    for(LogicalJoinNode toRemove : tempset){
+                        CostCard tempvector = computeCostAndCardOfSubplan(stats, filterSelectivities, toRemove, tempset, bestcost, pc);
+                        if(tempvector != null){
+                            bestcost = tempvector.cost;
+                            bestvector = tempvector;
+                        }
+                    }
+
+                    if(bestvector.plan != null){
+                        pc.addPlan(tempset, bestcost, bestvector.card, bestvector.plan);
+                    }
+                }
+            }
+            return pc.getOrder(wholeset);
+
     }
 
     // ===================== Private Methods =================================
