@@ -447,11 +447,16 @@ public class LogicalPlan {
             } else  {
                     TupleDesc td = node.getTupleDesc();
                     int id;
+                    System.out.println("fname:"+si.fname);
+                    String[] field = si.fname.split("\\.");
+                    System.out.println("purename:"+field[1]);
                     try {
-                        id = td.fieldNameToIndex(si.fname);
+                        //id = td.fieldNameToIndex(si.fname);
+                        id = td.fieldNameToIndex(field[1]);
                     } catch (NoSuchElementException e) {
                         throw new ParsingException("Unknown field " +  si.fname + " in SELECT list");
                     }
+                    System.out.println("id: "+id);
                     outFields.add(id);
                     outTypes.add(td.getFieldType(id));
 
